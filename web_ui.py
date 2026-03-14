@@ -25,8 +25,7 @@ for l in ["httpx", "uvicorn", "httpcore", "urllib3", "PIL", "faiss"]:
 import shared
 import gradio as gr
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, Response
 import uvicorn
 
 from tabs.inference_tab import create_inference_tab
@@ -63,20 +62,32 @@ else:
     # Create FastAPI app
     fastapi_app = FastAPI()
 
-    # Add CORS middleware
-    fastapi_app.add_middleware(
-        CORSMiddleware,
-        allow_origins=["*"],
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
-
-    # Add private network header middleware
+    # Dynamic CORS middleware: reflect incoming Origin and support preflight.
     @fastapi_app.middleware("http")
-    async def add_private_network_header(request, call_next):
-        response = await call_next(request)
+    async def cors_and_private_network(request, call_next):
+        origin = request.headers.get("origin")
+        request_method = request.headers.get("access-control-request-method")
+        request_headers = request.headers.get("access-control-request-headers")
+
+        # Handle preflight directly so mounted Gradio routes do not need custom handlers.
+        if request.method == "OPTIONS":
+            response = Response(status_code=204)
+        else:
+            response = await call_next(request)
+
         response.headers["Access-Control-Allow-Private-Network"] = "true"
+
+        if origin:
+            response.headers["Access-Control-Allow-Origin"] = origin
+            response.headers["Access-Control-Allow-Credentials"] = "true"
+            response.headers["Access-Control-Allow-Methods"] = (
+                request_method or "GET,POST,PUT,PATCH,DELETE,OPTIONS"
+            )
+            response.headers["Access-Control-Allow-Headers"] = request_headers or "*"
+
+            vary = response.headers.get("Vary")
+            response.headers["Vary"] = f"{vary}, Origin" if vary else "Origin"
+
         return response
 
     # Mount Gradio app
