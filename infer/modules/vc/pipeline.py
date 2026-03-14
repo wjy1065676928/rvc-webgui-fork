@@ -30,7 +30,7 @@ from scipy import signal
 now_dir = os.getcwd()
 sys.path.append(now_dir)
 
-bh, ah = signal.butter(N=5, Wn=48, btype="high", fs=16000)
+bh, ah = signal.butter(N=5, Wn=48, btype="high", fs=16000)  # type: ignore
 
 from infer.modules.vc.f0_extractors import *
 from lib.types.f0 import PitchMethod, PITCH_METHODS

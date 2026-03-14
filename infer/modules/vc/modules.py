@@ -1,3 +1,4 @@
+from lib.types import PitchMethod
 import traceback
 import logging
 from typing import Any, Dict, Optional, Union
@@ -62,7 +63,7 @@ class VC:
         ] = None
         self.pipeline: Optional[Pipeline] = None
         self.cpt: Optional[Dict[str, Any]] = None
-        self.version: Optional[str] = None
+        self.version: str = "UNKNOWN"
         self.if_f0: Optional[int] = None
         self.hubert_model: Optional[HubertModel] = None
         self.config: Config = config
@@ -190,7 +191,7 @@ class VC:
         self: "VC",
         sr_and_audio: Optional[Tuple[int, np.ndarray]],
         f0_up_key: int,
-        f0_method: str,
+        f0_method: PitchMethod,
         file_index: Optional[str],  # Path to .index file from dropdown
         index_rate: float,
         resample_sr: int,  # Target sample rate
@@ -198,10 +199,18 @@ class VC:
         protect: float,
         progress: gr.Progress = gr.Progress(),
     ) -> Tuple[str, Optional[Tuple[int, np.ndarray]]]:
+        if self.net_g is None or self.pipeline is None:
+            return "Model not loaded. Please select a valid SID.", None
         file_index = None
         f0_file = None
         sid = 0
         filter_radius = 3
+        if_f0 = self.if_f0
+        if if_f0 is None:
+            return "Model F0 setting unknown. Please reload the model.", None
+        tgt_sr = self.tgt_sr
+        if tgt_sr is None:
+            return "Model target sample rate unknown. Please reload the model.", None
         f0_up_key = int(f0_up_key)
         try:
             if sr_and_audio is None:
@@ -231,9 +240,9 @@ class VC:
                 f0_method=f0_method,
                 file_index=file_index,
                 index_rate=index_rate,
-                if_f0=self.if_f0,
+                if_f0=if_f0,
                 # filter_radius=filter_radius,
-                tgt_sr=self.tgt_sr,
+                tgt_sr=tgt_sr,
                 resample_sr=resample_sr,
                 rms_mix_rate=rms_mix_rate,
                 version=self.version,
@@ -263,7 +272,7 @@ class VC:
         self: "VC",
         sr_and_audio: Optional[Tuple[int, np.ndarray]],
         f0_up_key: int,
-        f0_method: str,
+        f0_method: PitchMethod,
         file_index: Optional[str],  # Path to .index file from dropdown
         index_rate: float,
         resample_sr: int,  # Target sample rate
