@@ -3,6 +3,11 @@ import logging
 import git
 import torch
 
+# wjy1214
+import subprocess
+import threading
+import re
+
 # Try to import the Dictionary class in a way compatible with different fairseq versions
 try:
     from fairseq.data.dictionary import Dictionary as FairseqDictionary
@@ -52,9 +57,36 @@ with gr.Blocks(title="RVC WebUI Fork") as gradio_app:
         create_ckpt_processing_tab()
 
 # Handle launch based on environment
+def start_cloudflared():
+    # 下载 cloudflared（如果没有）
+    subprocess.run(
+        "wget -q https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -O cloudflared",
+        shell=True
+    )
+    subprocess.run("chmod +x cloudflared", shell=True)
+
+    # 启动隧道
+    process = subprocess.Popen(
+        "./cloudflared tunnel --url http://127.0.0.1:7860",
+        shell=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True
+    )
+
+    # 解析公网链接
+    for line in process.stdout:
+        if "trycloudflare.com" in line:
+            url = re.search(r"(https://[^\s]+trycloudflare\.com)", line)
+            if url:
+                print("\n🌐 公网地址：", url.group(1), "\n")
+
+
 if shared.config.iscolab:
-    # For Colab, launch directly with Gradio
-    gradio_app.queue(max_size=1022).launch(share=True)
+    # 启动 Gradio（本地）
+    threading.Thread(target=lambda: gradio_app.queue(max_size=1022).launch(share=False)).start()
+    # 启动 CF 隧道
+    start_cloudflared()
 else:
     # For non-Colab, set up FastAPI with Gradio mounted
     gradio_app.queue(max_size=1022)  # Enable queuing
